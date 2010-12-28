@@ -7,14 +7,13 @@ package net.arya.utf
  * Time: 5:44 PM
  */
 
-import Types._
-
 import collection.IndexedSeqOptimized
 import collection.mutable.ArrayBuilder
 
-case class UtfDecodeResult(codePoint: Utf32CodePoint, codeUnitsConsumed: Int)
-
-abstract class UtfString[U] extends Seq[Utf32CodePoint] {
+/**
+ * Superclass of UtfXString
+ */
+abstract class UtfString[U] extends Seq[CodePoint.Utf32] {
 
   val underlying: Array[U]
 
@@ -23,9 +22,29 @@ abstract class UtfString[U] extends Seq[Utf32CodePoint] {
   def toUtf32String: Utf32String
   def toUtf16String: Utf16String
   def toUtf8String: Utf8String
-  override def toString = new String(toUtf16String.underlying)
+
+  override def toString = new java.lang.String(toUtf16String.underlying)
 }
 
+object UtfString {
+  def apply(underlying: Array[Byte]) = new Utf8String(underlying)
+  def apply(underlying: Array[Char]) = new Utf16String(underlying)
+  def apply(underlying: Array[Int]) = new Utf32String(underlying)
+  def apply(underlying: CodePoint.Utf32) = new Utf32String(Array(underlying.asInt))
+  def apply(underlying: Int) = new Utf32String(Array(underlying))
+}
+
+
+case class UtfDecodeResult(asInt: Int, codeUnitsConsumed: Int) {
+  def this(boxed: CodePoint.Utf32, codeUnitsConsumed: Int) =
+    this(boxed.asInt,  codeUnitsConsumed)
+  def boxed = CodePoint.Utf32(asInt)
+}
+
+
+/**
+ * Trait for dealing with multi-unit codepoint encodings
+ */
 trait EncodedUtfString[U]
   extends UtfString[U]
 {
@@ -39,7 +58,7 @@ trait EncodedUtfString[U]
     count
   }
 
-  override def apply(idx: Int): Utf32CodePoint = {
+  override def apply(idx: Int): CodePoint.Utf32 = {
     val it = this.iterator
     var count = 0;
     while (count < idx) {
@@ -51,26 +70,28 @@ trait EncodedUtfString[U]
     else throw new IndexOutOfBoundsException
   }
 
-  override def iterator: Iterator[Utf32CodePoint] = new Iterator[Utf32CodePoint] {
-    var index = 0;
+  override def iterator: Iterator[CodePoint.Utf32] =
+    new Iterator[CodePoint.Utf32] {
+      var index = 0;
 
-    override def hasNext: Boolean = index >= underlying.length
+      override def hasNext: Boolean =
+        index < underlying.length
 
-    override def next: Utf32CodePoint = {
-      val result = decodeAt(index)
+      override def next: CodePoint.Utf32 = {
+        val result = decodeAt(index)
 
-      index += result.codeUnitsConsumed
+        index += result.codeUnitsConsumed
 
-      result.codePoint
+        result.boxed
+      }
     }
-  }
 
   override def toUtf32String = {
     val builder = new ArrayBuilder.ofInt
     var unitIndex = 0;
     while (unitIndex < underlying.length) {
       val result = decodeAt(unitIndex)
-      builder += result.codePoint
+      builder += result.asInt
       unitIndex += result.codeUnitsConsumed
     }
     new Utf32String(builder.result)
@@ -81,23 +102,34 @@ trait EncodedUtfString[U]
 
 }
 
-class Utf8String(override val underlying: Array[Utf8CodeUnit])
-  extends EncodedUtfString[Utf8CodeUnit]
+/**
+ * Utf8String
+ */
+class Utf8String(override val underlying: Array[Byte])
+  extends EncodedUtfString[Byte]
 {
-  def decodeAt(startOffset: Int): UtfDecodeResult = Unicode.decodeAt(underlying, startOffset)
+  def decodeAt(startOffset: Int): UtfDecodeResult = Util.decodeAt(underlying, startOffset)
 }
 
-class Utf16String(override val underlying: Array[Utf16CodeUnit])
-  extends EncodedUtfString[Utf16CodeUnit]
+
+/**
+ * Utf16String
+ */
+class Utf16String(override val underlying: Array[Char])
+  extends EncodedUtfString[Char]
 {
-  def decodeAt(arrayIndex: Int): UtfDecodeResult = Unicode.decodeAt(underlying, arrayIndex)
+  def decodeAt(arrayIndex: Int): UtfDecodeResult = Util.decodeAt(underlying, arrayIndex)
 }
 
-class Utf32String(val underlying: Array[Utf32CodeUnit])
-  extends UtfString[Utf32CodeUnit]
-  with IndexedSeqOptimized[Utf32CodePoint,Seq[Utf32CodePoint]]
+
+/**
+ * Utf32String
+ */
+class Utf32String(val underlying: Array[Int])
+  extends UtfString[Int]
+  with IndexedSeqOptimized[CodePoint.Utf32, Seq[CodePoint.Utf32]]
 {
-  override def apply(idx: Int) = underlying(idx)
+  override def apply(idx: Int) = CodePoint.Utf32(underlying(idx))
   override def length = underlying.length
 
   def toUtf32String = this
@@ -105,14 +137,14 @@ class Utf32String(val underlying: Array[Utf32CodeUnit])
   def toUtf16String = {
     val builder = new ArrayBuilder.ofChar
     for (cp <- underlying)
-      Unicode.encodeToUtf16(cp, builder)
+      Util.encodeToUtf16(cp, builder)
     new Utf16String(builder.result)
   }
 
   def toUtf8String = {
     val builder = new ArrayBuilder.ofByte
     for (cp <- underlying)
-      Unicode.encodeToUtf8(cp, builder)
+      Util.encodeToUtf8(cp, builder)
     new Utf8String(builder.result)
   }
 }
