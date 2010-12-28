@@ -16,6 +16,7 @@ object CodePoint {
  * These classes represent Unicode strings, and conversions between encodings.
  */
 abstract class UtfString[U] extends Seq[CodePoint.Utf32] {
+  val underlying: Array[U] /* Backed by Arrays of values, not refs */
   def length: Int
   def toUtf32String: Utf32String
   def toUtf16String: Utf16String
@@ -41,5 +42,4 @@ object Test1 extends Application {
   val doubles16: Utf16String = doubles // UTF-16 uses 6 Chars = 12 bytes
   val foo: String = doubles8.mkString(":") // .mkString is defined on Seq...
 }
-
 
