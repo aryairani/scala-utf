@@ -26,7 +26,7 @@ abstract class UtfString[U] extends Seq[CodePoint.Utf32] {
 /** Utf32 supports O(1) lookup **/
 class Utf32String extends UtfString[Int] with IndexedSeqOptimized[/*...*/] { /* ... */ }
 
-/** Utf8 and Utf8 support O(n) lookup **/
+/** Utf8 and Utf16 support O(n) lookup **/
 class Utf16String extends UtfString[Char] { /* ... */ }
 class Utf8String extends UtfString[Byte] { /* ... */ }
 
