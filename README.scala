@@ -43,3 +43,5 @@ object Test1 extends Application {
   val foo: String = doubles8.mkString(":") // .mkString is defined on Seq...
 }
 
+
+Join the chat at https://gitter.im/refried/scala-utf
